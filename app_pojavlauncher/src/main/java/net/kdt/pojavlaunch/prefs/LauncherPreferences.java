@@ -91,7 +91,12 @@ public class LauncherPreferences {
         PREF_DISABLE_GESTURES = DEFAULT_PREF.getBoolean("disableGestures",false);
         PREF_GAMEPAD_FORCEDSDL_PASSTHRU = DEFAULT_PREF.getBoolean("gamepadPassthruForced",false);
         PREF_DISABLE_SWAP_HAND = DEFAULT_PREF.getBoolean("disableDoubleTap", false);
-        PREF_RAM_ALLOCATION = DEFAULT_PREF.getInt("allocation", findBestRAMAllocation(ctx));
+        int safeMaxRam = getSafeMaxRAMAllocation(ctx);
+        int requestedRam = DEFAULT_PREF.getInt("allocation", 2048);
+        PREF_RAM_ALLOCATION = Math.max(256, Math.min(requestedRam, safeMaxRam));
+        if (PREF_RAM_ALLOCATION != requestedRam) {
+            DEFAULT_PREF.edit().putInt("allocation", PREF_RAM_ALLOCATION).apply();
+        }
         PREF_CUSTOM_JAVA_ARGS = DEFAULT_PREF.getString("javaArgs", "");
         PREF_SUSTAINED_PERFORMANCE = DEFAULT_PREF.getBoolean("sustainedPerformance", isDevicePowerful);
         PREF_VIRTUAL_MOUSE_START = DEFAULT_PREF.getBoolean("mouse_start", false);
@@ -153,17 +158,31 @@ public class LauncherPreferences {
      * @return The best default value found.
      */
     private static int findBestRAMAllocation(Context ctx){
-        int deviceRam = Tools.getTotalDeviceMemory(ctx);
-        if (deviceRam < 1024) return 296;
-        if (deviceRam < 1536) return 448;
-        if (deviceRam < 2048) return 656;
-        // Limit the max for 32 bits devices more harshly
-        if (is32BitsDevice()) return 696;
+        return Math.min(2048, getSafeMaxRAMAllocation(ctx));
+    }
 
-        if (deviceRam < 3064) return 936;
-        if (deviceRam < 4096) return 1144;
-        if (deviceRam < 6144) return 1536;
-        return 2048; //Default RAM allocation for 64 bits
+    /**
+     * RESENHALAUNCHER memory policy:
+     * - 2048 MB default
+     * - 8192 MB absolute selectable cap
+     * - automatically preserves memory for Android and native libraries
+     * - more conservative limits on 32-bit devices
+     */
+    public static int getSafeMaxRAMAllocation(Context ctx) {
+        int deviceRam = Tools.getTotalDeviceMemory(ctx);
+        if (deviceRam <= 0) return 1024;
+
+        if (is32BitsDevice()) {
+            return Math.max(256, Math.min(1024, deviceRam - 512));
+        }
+
+        int reserve;
+        if (deviceRam <= 3072) reserve = 1024;
+        else if (deviceRam <= 6144) reserve = 1536;
+        else reserve = 2048;
+
+        int safeMax = Math.max(512, deviceRam - reserve);
+        return Math.min(8192, safeMax);
     }
 
     /// Find a correct resolution for the device
