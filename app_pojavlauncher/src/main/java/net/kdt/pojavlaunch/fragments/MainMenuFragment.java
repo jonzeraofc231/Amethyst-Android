@@ -97,7 +97,7 @@ public class MainMenuFragment extends Fragment {
 
         mInstallModpackButton.setOnClickListener(v -> {
             if (requireActivity() instanceof LauncherActivity) {
-                ((LauncherActivity) requireActivity()).modpackImportLauncher.launch(null);
+                ((LauncherActivity) requireActivity()).modpackImportLauncher.launch(new Object());
             }
         });
 
