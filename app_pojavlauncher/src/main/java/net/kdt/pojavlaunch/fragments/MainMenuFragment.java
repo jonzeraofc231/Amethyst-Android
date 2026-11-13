@@ -72,6 +72,12 @@ public class MainMenuFragment extends Fragment {
         mEditProfileButton.setOnClickListener(v -> mVersionSpinner.openProfileEditor(requireActivity()));
 
         mPlayButton.setOnClickListener(v -> {
+            if (!hasOnlineProfile()) {
+                hasNoOnlineProfileDialog(requireActivity(),
+                        getString(R.string.no_minecraft_account_found),
+                        getString(R.string.feature_requires_java_account));
+                return;
+            }
             if (Tools.hasMods("sodium") && !(LauncherPreferences.DEFAULT_PREF.getBoolean("sodium_override", false))) {
                 AlertDialog sodiumWarningDialog = new AlertDialog.Builder(requireContext())
                         .setTitle(R.string.sodium_warning_title)
