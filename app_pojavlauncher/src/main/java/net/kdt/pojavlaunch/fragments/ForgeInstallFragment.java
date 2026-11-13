@@ -17,6 +17,7 @@ import net.kdt.pojavlaunch.modloaders.ModloaderListenerProxy;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class ForgeInstallFragment extends ModVersionListFragment<List<String>> {
@@ -40,9 +41,23 @@ public class ForgeInstallFragment extends ModVersionListFragment<List<String>> {
         return R.string.forge_dl_no_installer;
     }
 
+    private static final String RESENHA_FORGE = "1.7.10-10.13.4.1614-1.7.10";
+
     @Override
     public List<String> loadVersionList() throws IOException {
-        return ForgeUtils.downloadForgeVersions();
+        List<String> versions = ForgeUtils.downloadForgeVersions();
+        List<String> resenhaFirst = new ArrayList<>();
+
+        // RESENHALAUNCHER preset: always show the supported Forge build first.
+        resenhaFirst.add(RESENHA_FORGE);
+        if (versions != null) {
+            for (String version : versions) {
+                if (!RESENHA_FORGE.equals(version)) {
+                    resenhaFirst.add(version);
+                }
+            }
+        }
+        return resenhaFirst;
     }
 
     @Override

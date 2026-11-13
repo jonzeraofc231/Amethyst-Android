@@ -24,6 +24,7 @@ import androidx.fragment.app.Fragment;
 import com.kdt.mcgui.mcVersionSpinner;
 
 import net.kdt.pojavlaunch.CustomControlsActivity;
+import net.kdt.pojavlaunch.LauncherActivity;
 import net.kdt.pojavlaunch.R;
 import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.extra.ExtraConstants;
@@ -54,6 +55,7 @@ public class MainMenuFragment extends Fragment {
         Button mInstallJarButton = view.findViewById(R.id.install_jar_button);
         Button mShareLogsButton = view.findViewById(R.id.share_logs_button);
         Button mOpenDirectoryButton = view.findViewById(R.id.open_files_button);
+        Button mInstallModpackButton = view.findViewById(R.id.install_modpack_button);
 
         ImageButton mEditProfileButton = view.findViewById(R.id.edit_profile_button);
         Button mPlayButton = view.findViewById(R.id.play_button);
@@ -72,6 +74,12 @@ public class MainMenuFragment extends Fragment {
         mEditProfileButton.setOnClickListener(v -> mVersionSpinner.openProfileEditor(requireActivity()));
 
         mPlayButton.setOnClickListener(v -> {
+            if (!hasOnlineProfile()) {
+                hasNoOnlineProfileDialog(requireActivity(),
+                        getString(R.string.no_minecraft_account_found),
+                        getString(R.string.feature_requires_java_account));
+                return;
+            }
             if (Tools.hasMods("sodium") && !(LauncherPreferences.DEFAULT_PREF.getBoolean("sodium_override", false))) {
                 AlertDialog sodiumWarningDialog = new AlertDialog.Builder(requireContext())
                         .setTitle(R.string.sodium_warning_title)
@@ -86,6 +94,12 @@ public class MainMenuFragment extends Fragment {
         });
 
         mShareLogsButton.setOnClickListener((v) -> shareLog(requireContext()));
+
+        mInstallModpackButton.setOnClickListener(v -> {
+            if (requireActivity() instanceof LauncherActivity) {
+                ((LauncherActivity) requireActivity()).modpackImportLauncher.launch(new Object());
+            }
+        });
 
         mOpenDirectoryButton.setOnClickListener((v)-> {
             if (Tools.isDemoProfile(v.getContext())){ // Say a different message when on demo profile since they might see the hidden demo folder
