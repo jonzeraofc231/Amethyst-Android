@@ -1,0 +1,97 @@
+name: Build PojavLauncher with Modpack Button
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - resenhalauncher-dev
+    paths:
+      - '.github/workflows/build-pojav-modpack.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout official PojavLauncher
+        uses: actions/checkout@v4
+        with:
+          repository: TeamPojavLauncher/PojavLauncher
+          ref: v3_openjdk
+          submodules: recursive
+          path: pojav
+
+      - name: Add Add / Install Modpack button
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path("pojav")
+          layout = root / "app_pojavlauncher/src/main/res/layout/fragment_launcher.xml"
+          main = root / "app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/fragments/MainMenuFragment.java"
+
+          text = layout.read_text()
+          old = '''\t\t\t<com.kdt.mcgui.LauncherMenuButton
+\t\t\t\tandroid:id="@+id/open_files_button"
+\t\t\t\tstyle="@style/LauncherMenuButton.Universal"
+\t\t\t\tandroid:layout_width="match_parent"
+\t\t\t\tandroid:drawableStart="@drawable/ic_px_folder"
+\t\t\t\tandroid:text="@string/mcl_button_open_directory"
+\t\t\t\tapp:layout_constraintTop_toBottomOf="@id/share_logs_button" />'''
+          new = old + '''
+
+\t\t\t<com.kdt.mcgui.LauncherMenuButton
+\t\t\t\tandroid:id="@+id/install_modpack_button"
+\t\t\t\tstyle="@style/LauncherMenuButton.Universal"
+\t\t\t\tandroid:layout_width="match_parent"
+\t\t\t\tandroid:drawableStart="@drawable/ic_px_java_run"
+\t\t\t\tandroid:text="@string/import_local_modpack"
+\t\t\t\tapp:layout_constraintTop_toBottomOf="@id/open_files_button" />'''
+          if old not in text:
+              raise SystemExit("Could not find Open game directory button block")
+          layout.write_text(text.replace(old, new, 1))
+
+          text = main.read_text()
+          old = '        Button mOpenDirectoryButton = view.findViewById(R.id.open_files_button);'
+          new = old + '\n        Button mInstallModpackButton = view.findViewById(R.id.install_modpack_button);'
+          if old not in text:
+              raise SystemExit("Could not find open directory view binding")
+          text = text.replace(old, new, 1)
+
+          old = '        mOpenDirectoryButton.setOnClickListener((v)-> openGameDirectory(v.getContext()));'
+          new = old + '''
+
+        mInstallModpackButton.setOnClickListener(v ->
+                Tools.swapFragment(requireActivity(), SearchModFragment.class,
+                        SearchModFragment.TAG, null));'''
+          if old not in text:
+              raise SystemExit("Could not find open directory click handler")
+          main.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Grant Gradle permission
+        run: chmod +x pojav/gradlew
+
+      - name: Build PojavLauncher Debug APK
+        working-directory: pojav
+        run: ./gradlew :app_pojavlauncher:assembleDebug --stacktrace
+
+      - name: Collect APK
+        shell: bash
+        run: |
+          mkdir -p out
+          APK="$(find pojav/app_pojavlauncher/build/outputs/apk/debug -name '*.apk' | head -n 1)"
+          test -n "$APK"
+          cp "$APK" out/PojavLauncher-Modpack-debug.apk
+
+      - name: Upload PojavLauncher APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PojavLauncher-Modpack
+          path: out/PojavLauncher-Modpack-debug.apk
