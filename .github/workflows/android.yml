@@ -97,63 +97,22 @@ jobs:
   build_pojav_modpack:
     name: Build PojavLauncher Modpack APK
     runs-on: ubuntu-22.04
-    env:
-      CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
     steps:
+      - name: Checkout helper files
+        uses: actions/checkout@v4
+        with:
+          path: wrapper
+
       - name: Checkout official PojavLauncher
         uses: actions/checkout@v4
         with:
           repository: TeamPojavLauncher/PojavLauncher
           ref: v3_openjdk
           submodules: recursive
+          path: pojav
 
-      - name: Add Add / Install Modpack button
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          layout = Path("app_pojavlauncher/src/main/res/layout/fragment_launcher.xml")
-          main = Path("app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/fragments/MainMenuFragment.java")
-
-          text = layout.read_text()
-          old = '''\t\t\t<com.kdt.mcgui.LauncherMenuButton
-\t\t\t\tandroid:id="@+id/open_files_button"
-\t\t\t\tstyle="@style/LauncherMenuButton.Universal"
-\t\t\t\tandroid:layout_width="match_parent"
-\t\t\t\tandroid:drawableStart="@drawable/ic_px_folder"
-\t\t\t\tandroid:text="@string/mcl_button_open_directory"
-\t\t\t\tapp:layout_constraintTop_toBottomOf="@id/share_logs_button" />'''
-          new = old + '''
-
-\t\t\t<com.kdt.mcgui.LauncherMenuButton
-\t\t\t\tandroid:id="@+id/install_modpack_button"
-\t\t\t\tstyle="@style/LauncherMenuButton.Universal"
-\t\t\t\tandroid:layout_width="match_parent"
-\t\t\t\tandroid:drawableStart="@drawable/ic_px_java_run"
-\t\t\t\tandroid:text="@string/import_local_modpack"
-\t\t\t\tapp:layout_constraintTop_toBottomOf="@id/open_files_button" />'''
-          if old not in text:
-              raise SystemExit("Could not find Open game directory block")
-          layout.write_text(text.replace(old, new, 1))
-
-          text = main.read_text()
-          bind_old = '        Button mOpenDirectoryButton = view.findViewById(R.id.open_files_button);'
-          bind_new = bind_old + '\n        Button mInstallModpackButton = view.findViewById(R.id.install_modpack_button);'
-          if bind_old not in text:
-              raise SystemExit("Could not find open directory binding")
-          text = text.replace(bind_old, bind_new, 1)
-
-          click_old = '        mOpenDirectoryButton.setOnClickListener((v)-> openGameDirectory(v.getContext()));'
-          click_new = click_old + '''
-
-        mInstallModpackButton.setOnClickListener(v ->
-                Tools.swapFragment(requireActivity(), SearchModFragment.class,
-                        SearchModFragment.TAG, null));'''
-          if click_old not in text:
-              raise SystemExit("Could not find open directory click handler")
-          main.write_text(text.replace(click_old, click_new, 1))
-          PY
+      - name: Patch PojavLauncher
+        run: python3 wrapper/scripts/patch_pojav_modpack.py pojav
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -169,7 +128,7 @@ jobs:
           workflow: android.yml
           workflow_conclusion: success
           name: output-aar
-          path: app_pojavlauncher/libs
+          path: pojav/app_pojavlauncher/libs
 
       - name: Get Mesa
         uses: dawidd6/action-download-artifact@v6
@@ -180,21 +139,23 @@ jobs:
           workflow_conclusion: success
           branch: mojo/26.2
           name: mesa-aar
-          path: app_pojavlauncher/libs
+          path: pojav/app_pojavlauncher/libs
 
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
           validate-wrappers: false
           gradle-version: "8.14.5"
 
       - name: Build PojavLauncher Debug APK
+        working-directory: pojav
         run: |
-          mkdir -p out
+          mkdir -p ../pojav-out
           gradle :app_pojavlauncher:assembleFullDebug
-          cp app_pojavlauncher/build/outputs/apk/full/debug/app_pojavlauncher-full-debug.apk out/PojavLauncher-Modpack-debug.apk
+          cp app_pojavlauncher/build/outputs/apk/full/debug/app_pojavlauncher-full-debug.apk ../pojav-out/PojavLauncher-Modpack-debug.apk
 
       - name: Upload PojavLauncher Modpack APK
         uses: actions/upload-artifact@v4
         with:
           name: PojavLauncher-Modpack
-          path: out/PojavLauncher-Modpack-debug.apk
+          path: pojav-out/PojavLauncher-Modpack-debug.apk
